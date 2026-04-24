@@ -1,0 +1,11 @@
+class MFStruct:
+    def __init__(self):
+		self.cust = ''
+		self.1_sum_quant = 0
+		self.1_avg_quant = 0
+		self.2_sum_quant = 0
+		self.3_sum_quant = 0
+		self.3_avg_quant = 0
+
+
+        
