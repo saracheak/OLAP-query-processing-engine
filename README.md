@@ -21,7 +21,8 @@ brew services start postgresql
 ```
 Note: You may need to change your postgres password using 
 ```bash
-ALTER USER postgres WITH PASSWORD 'password'; ```
+ALTER USER postgres WITH PASSWORD 'password';
+```
 
 2. Setup PostgreSQL Database:
 ```bash
@@ -34,6 +35,7 @@ If you are prompted for a password and do not know it, run:
 ```sql
 psql -U postgres
 ALTER USER postgres WITH PASSWORD 'password';
-\q```
+\q
+```
 
 Alternatively, you can use your own PostgreSQL username and update the connection settings in the code.
