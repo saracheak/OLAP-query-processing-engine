@@ -64,7 +64,56 @@ class Generator:
                 else:
                     phi_params[param].append(line)
         return phi_params
+    
+    def validate_multi_value_input_string(multi_value_param):
+        """
+        This function validates the user typed input variable is entered in the correct comma seperated 
+        format and does not contain any empty values. They are re-prompted if their input is not in the
+        correct format.
 
+        :returns: multi_value_param
+        :rtype: string
+        """
+        #split the input string based on commas
+        while True:
+            parts = [p.strip() for p in multi_value_param.split(',')]
+            
+            if parts[0]=='':
+                print("Invalid input: at least one input must be provided.")
+                multi_value_param = input("Re-enter param:\n").strip()
+                continue
+            elif len(parts)==1:
+                #validate that one input was given, not multiple inputs without commas
+                if " " in parts[0]:
+                    print("Invalid input: multiple values must be separated by commas.")
+                    multi_value_param = input("Re-enter param:\n").strip()
+                    continue
+                return multi_value_param
+            else: #multiple values inputted, verify none were empty like a, ,b
+                for p in parts:
+                    if (p==''):
+                        print("Invalid input: input values cannot be empty.")
+                        multi_value_param = input("Re-enter param:\n").strip()
+                        continue
+                return multi_value_param
+    def validate_n_is_int(n_param):
+        """
+        This function validates the user typed input for n is an integer. They are re-prompted if their input is not in the
+        correct format.
+
+        :returns: n_param
+        :rtype: string
+        """
+        while True: 
+            try:    
+                n_type = isinstance(int(n_param), int)
+                if(n_type == True):
+                    break
+            except ValueError:
+                print("Invalid input: n parameter must be an integer.")
+                n_param = input("Re-enter n param:\n").strip()
+        return n_param
+            
     def user_input_to_phi(param_S, param_n, param_V, param_F, param_p, param_G):
         """
         This function takes the user arguments, cleans them, and converts it into a structure with the phi parameters
@@ -129,18 +178,28 @@ class HelperFunctions:
 
 
 if __name__ == "__main__":
-    option = input("Do you want to input phi parameters by file or user input? Enter 'file' or 'user':\n")
-    if option == "file":
-        filename = input("Enter file path:\n")
-        phi_params = Generator.read_input_to_phi(filename)
-        mf_struct_string = Generator.convert_to_mf_struct(phi_params)
-        HelperFunctions.write_to_file(mf_struct_string)
-    elif option == "user":
-        print("Ensure multi-valued parameters are separated by ','\n")
-        param_S = input("Enter S param:\n")
-        param_n = input("Enter n param:\n")
-        param_V = input("Enter V param:\n")
-        param_F = input("Enter F param:\n")
-        param_p = input("Enter sigma param:\n")
-        param_G = input("Enter G param:\n")
-        print(Generator.user_input_to_phi(param_S, param_n, param_V, param_F, param_p, param_G))
+    while True:
+        option = input("Do you want to input phi parameters by file or user input? Enter 'file' or 'user':\n")
+        option = option.lower()
+        if option == "file":
+            filename = input("Enter file path:\n")
+            phi_params = Generator.read_input_to_phi(filename)
+            mf_struct_string = Generator.convert_to_mf_struct(phi_params)
+            HelperFunctions.write_to_file(mf_struct_string)
+            break
+        elif option == "user":
+            print("Ensure multi-valued parameters are separated by ','\n")
+
+            param_S = Generator.validate_multi_value_input_string(input("Enter S param:\n").strip())
+            param_n = Generator.validate_n_is_int(input("Enter n param:\n").strip())
+            param_V = Generator.validate_multi_value_input_string(input("Enter V param:\n").strip())
+            param_F = Generator.validate_multi_value_input_string(input("Enter F param:\n").strip())
+            param_p = Generator.validate_multi_value_input_string(input("Enter sigma param:\n").strip())
+            
+            #IDK what to do for input validation here :/
+            param_G = input("Enter G param:\n").strip()
+
+            print(Generator.user_input_to_phi(param_S, param_n, param_V, param_F, param_p, param_G))
+            break
+        else:
+            print("Invalid input. Please enter 'file' or 'user")
