@@ -71,8 +71,8 @@ class Generator:
         format and does not contain any empty values. They are re-prompted if their input is not in the
         correct format.
 
-        :returns: comma seperated string
-        :rtype: dict {str: [str]}
+        :returns: multi_value_param
+        :rtype: string
         """
         #split the input string based on commas
         while True:
@@ -97,6 +97,13 @@ class Generator:
                         continue
                 return multi_value_param
     def validate_n_is_int(n_param):
+        """
+        This function validates the user typed input for n is an integer. They are re-prompted if their input is not in the
+        correct format.
+
+        :returns: n_param
+        :rtype: string
+        """
         while True: 
             try:    
                 n_type = isinstance(int(n_param), int)
