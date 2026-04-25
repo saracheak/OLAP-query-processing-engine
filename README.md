@@ -45,4 +45,4 @@ Once installation is complete and you are in the virtual environment, run:
 ```bash
 psql -U postgres -d sales
 ```
-which will give you access to the sales database. From there you can enter your SQL queries
+which will give you access to the sales database. You will see "sales=# " and from there you can enter your SQL queries
