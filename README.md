@@ -19,7 +19,9 @@ Install PostgreSQL (Mac) if not already installed:
 brew install postgresql
 brew services start postgresql
 ```
-Note: You may need to change your postgres password using ALTER USER postgres WITH PASSWORD 'password';
+Note: You may need to change your postgres password using 
+```bash
+ALTER USER postgres WITH PASSWORD 'password'; ```
 
 2. Setup PostgreSQL Database:
 ```bash
@@ -29,10 +31,9 @@ psql -U postgres -d sales -f setup_sales.sql
 ## (Optional) Set PostgreSQL Password
 If you are prompted for a password and do not know it, run:
 
-```bash
+```sql
 psql -U postgres
 ALTER USER postgres WITH PASSWORD 'password';
-\q
+\q```
 
-```md
 Alternatively, you can use your own PostgreSQL username and update the connection settings in the code.
