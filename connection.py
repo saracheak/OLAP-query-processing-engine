@@ -11,11 +11,13 @@ try:
         host="localhost"
     )
 
-    cur = conn.cursor()
+    cur = conn.cursor() #prepares to run the queries
         
     cur.execute("SELECT version();")
-    db_version = cur.fetchone()
+    db_version = cur.fetchone() #retrieves data row by row equivalent to: "for row in cur:"
     print(f"Connected to: {db_version}")
+    cur.execute("SELECT * FROM sales;")  #execute sends the SQL query to PostgreSQL, and the columns retrieved are stored in the cursor
+
 
     cur.close()
     conn.close()

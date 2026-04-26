@@ -1,40 +1,21 @@
 /*---------------------------------------------------------------------
 
-1. Use the following SQL statement to create the 'sales' table first in the SQL window ("Query Tool" window of "pgAdmin").
-
-	create table sales
-	(
-		cust	varchar(20),
-		prod	varchar(20),
-		day		integer,
-		month	integer,
-		year	integer,
-		state	char(2),
-		quant	integer,
-		date	date
-	)
-	
-2. To load the data into the 'sales' table, copy and paste the following INSERT statements and execute.
-
-   An alternative to copying & pasting would be:
-	a. Save this file (e.g., download and save it to your local machine).
-	b. In a "Query Tool" window of "pgAdmin" (client app which is installed as part of PostgreSQL), click on the "folder" icon (for "Open File").
-	c. Choose the downloaded file ("load_sales_10000_table.sql"), and it will load the content of this file.
-	d. Click on "Execute" icon or hit the function key 5 (F5).
-
-   To verify, run the following SQL   statement, and it should return 10,000 (rows).
-	
-	select count(*) from sales;
-	
-3. To delete all of the rows in the table:
-
-	truncate table sales;
-	
-4. In a rare case, if you need to remove the 'sales' table completely:
-
-	drop table sales;		
+This file will create and fill in the sales table in the users local DB. 
 
 ---------------------------------------------------------------------*/
+
+DROP TABLE IF EXISTS sales;
+
+CREATE TABLE sales (
+    cust VARCHAR(50),
+    prod VARCHAR(50),
+    day INT,
+    month INT,
+    year INT,
+    state VARCHAR(2),
+    quant INT,
+    date DATE
+);
 
 insert into sales values ('Dan', 'Ham', 17, 6, 2016, 'PA', 825, '2016-06-17');
 insert into sales values ('Claire', 'Fish', 28, 11, 2016, 'CT', 84, '2016-11-28');

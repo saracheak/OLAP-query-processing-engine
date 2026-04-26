@@ -159,9 +159,7 @@ class Generator:
         
         mf_struct = f"""class MFStruct:
     def __init__(self):
-{select_attributes}
-
-        """
+{select_attributes}"""
         return mf_struct
 
 class HelperFunctions:
