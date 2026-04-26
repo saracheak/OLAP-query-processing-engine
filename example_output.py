@@ -18,14 +18,15 @@ try:
 except Exception:
     print("Failed to connect to the database")
     exit(1)
+
 class MFStruct:
     def __init__(self):
-		self.cust = ''
-		self.sum_1_quant = 0
-		self.avg_1_quant = 0
-		self.sum_2_quant = 0
-		self.sum_3_quant = 0
-		self.avg_3_quant = 0
+        self.cust = ''
+        self.sum_1_quant = 0
+        self.avg_1_quant = 0
+        self.sum_2_quant = 0
+        self.sum_3_quant = 0
+        self.avg_3_quant = 0
 
 mf_struct ={}
 COLUMN_INDEX = {
@@ -54,10 +55,22 @@ for row in cur:
 
         for v in GROUPING_ATTRIBUTES:
             setattr(mf_struct[group_key], v, row[COLUMN_INDEX[v]])
+print("\nProject Output Debugging Table:")
 
-print("\nGroups created:")
+SELECT_ATTRIBUTES = ['cust', 'sum_1_quant', 'sum_2_quant', 'sum_3_quant']
+# Print table header
+header = "group_key".ljust(20)
+for attr in SELECT_ATTRIBUTES:
+    header += attr.ljust(20)
+print(header)
+print("-" * len(header))
 
+# Print one row per group
 for group_key, entry in mf_struct.items():
-    print("Group:", group_key)
+    row_output = str(group_key).ljust(20)
 
+    for attr in SELECT_ATTRIBUTES:
+        row_output += str(getattr(entry, attr)).ljust(20)
+
+    print(row_output)
     
