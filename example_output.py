@@ -23,10 +23,17 @@ class MFStruct:
     def __init__(self):
         self.cust = ''
         self.sum_1_quant = 0
+        self.count_1_quant = 0
+        self.max_1_quant = 0
+        self.min_1_quant = 0
         self.avg_1_quant = 0
+        self.avg_1_quant_sum = 0
+        self.avg_1_quant_count = 0
         self.sum_2_quant = 0
         self.sum_3_quant = 0
         self.avg_3_quant = 0
+        self.avg_3_quant_sum = 0
+        self.avg_3_quant_count = 0
 
 mf_struct ={}
 COLUMN_INDEX = {
@@ -55,9 +62,66 @@ for row in cur:
 
         for v in GROUPING_ATTRIBUTES:
             setattr(mf_struct[group_key], v, row[COLUMN_INDEX[v]])
+
+#Scan for gropuing variable 1
+cur.execute("SELECT * FROM sales;")
+
+for row in cur:
+    group_values = []
+    for v in GROUPING_ATTRIBUTES:
+        group_values.append(row[COLUMN_INDEX[v]])
+
+    group_key = tuple(group_values)
+
+    if row[COLUMN_INDEX["state"]] == "NY":
+        mf_struct[group_key].sum_1_quant += row[COLUMN_INDEX["quant"]]
+        mf_struct[group_key].count_1_quant += 1
+        if mf_struct[group_key].max_1_quant == 0 or row[COLUMN_INDEX["quant"]] > mf_struct[group_key].max_1_quant: 
+            mf_struct[group_key].max_1_quant = row[COLUMN_INDEX["quant"]]
+        if mf_struct[group_key].min_1_quant == 0 or row[COLUMN_INDEX["quant"]] < mf_struct[group_key].min_1_quant:
+            mf_struct[group_key].min_1_quant = row[COLUMN_INDEX["quant"]]
+        mf_struct[group_key].avg_1_quant_sum += row[COLUMN_INDEX["quant"]]
+        mf_struct[group_key].avg_1_quant_count += 1
+
+#Scan for gropuing variable 2
+cur.execute("SELECT * FROM sales;")
+
+for row in cur:
+    group_values = []
+    for v in GROUPING_ATTRIBUTES:
+        group_values.append(row[COLUMN_INDEX[v]])
+
+    group_key = tuple(group_values)
+
+    if row[COLUMN_INDEX["state"]] == "NJ":
+        mf_struct[group_key].sum_2_quant += row[COLUMN_INDEX["quant"]]
+
+
+#Scan for gropuing variable 3
+cur.execute("SELECT * FROM sales;")
+
+for row in cur:
+    group_values = []
+    for v in GROUPING_ATTRIBUTES:
+        group_values.append(row[COLUMN_INDEX[v]])
+
+    group_key = tuple(group_values)
+
+    if row[COLUMN_INDEX["state"]] == "CT":
+        mf_struct[group_key].sum_3_quant += row[COLUMN_INDEX["quant"]]
+        mf_struct[group_key].avg_3_quant_sum += row[COLUMN_INDEX["quant"]]
+        mf_struct[group_key].avg_3_quant_count += 1
+
+# Finalize AVG values
+for group_key, entry in mf_struct.items():
+        
+        if entry.avg_1_quant_count != 0:
+            entry.avg_1_quant = entry.avg_1_quant_sum / entry.avg_1_quant_count        
+        if entry.avg_3_quant_count != 0:
+            entry.avg_3_quant = entry.avg_3_quant_sum / entry.avg_3_quant_count
 print("\nProject Output Debugging Table:")
 
-SELECT_ATTRIBUTES = ['cust', 'sum_1_quant', 'sum_2_quant', 'sum_3_quant']
+SELECT_ATTRIBUTES = ['cust', 'sum_1_quant', 'count_1_quant', 'max_1_quant', 'min_1_quant', 'sum_2_quant', 'sum_3_quant', 'avg_1_quant', 'avg_3_quant']
 # Print table header
 header = "group_key".ljust(20)
 for attr in SELECT_ATTRIBUTES:
