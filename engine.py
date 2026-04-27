@@ -144,6 +144,102 @@ class Generator:
         
         return phi_params
     
+    def parse_agg_names(agg_name):
+        """
+        This function parses the aggregate name into the aggregate, number, and column
+        Example Output:
+        sum_1_quant -> ("sum", "1", "quant")
+        avg_3_quant -> ("avg", "3", "quant")
+
+        :returns: 3 strings with the corresponding aggregate, number, and column name from the input
+        :rtype: string
+        """
+        parts = agg_name.split("_")
+        agg_func = parts[0] #sum, count, max, min, avg
+        group_var = parts[1] #, 1, 2, 3, etc. 
+        column = parts[2] #cust, prod, state, etc.
+
+        return agg_func, group_var, column
+    
+    def generate_aggregates_scanning_code(phi_params):
+        '''
+        Generates code for aggregate functions in F from phi_params.
+        Complexity needs to be improved, but currently works on 
+        simple params like 
+        1. state='NY'
+        2. state='NJ'
+
+        :returns: code for calculating specified aggregate (sum, count, max, min, avg)
+        :rtype: string
+        '''
+
+        """
+        This function is used to split the predicate based on the operation
+        Example: state!='NY' becomes {'state', '!=', 'NY'}
+
+        :returns: value to the left of operation sign, operation sign, and value to the right of the operation sign
+        :rtype: string
+        """
+        def split_condition(condition_part):
+            operators = ["!=", "<=", ">=", "==", "<", ">"]
+            for op in operators:
+                if op in condition_part:
+                    left, right = condition_part.split(op) #dynamically splits string around operation sign
+                    column = left.strip()
+                    value = right.strip().replace("'", "").replace("’", "") #get rid of extra quotes around value
+                    return column, op, value
+
+        f_vect = phi_params["F"]
+        predicates = phi_params["p"]
+
+        #required instead of returning code block bc we add to the block
+        #depending on what functions the user chose 
+        code = "" 
+
+        for p in predicates: 
+            #ensures calculations are done for each predicate
+            #example: 1.state='NY'
+
+            group_var = p.split(".")[0].strip() #splits grouping varible number, so based on the example above group_var = 1
+            condition_part = p.split(".", 1)[1] #condition part = "state='NY'"
+            column_name, operator, expected_value = split_condition(condition_part)
+
+            #need a variable to store code rather than returning at at once bc the functions added are 
+            #dependent on the the query given
+            code+=f"""
+#Scan for gropuing variable {group_var}
+cur.execute("SELECT * FROM sales;")
+
+for row in cur:
+    group_values = []
+    for v in GROUPING_ATTRIBUTES:
+        group_values.append(row[COLUMN_INDEX[v]])
+
+    group_key = tuple(group_values)
+
+    if row[COLUMN_INDEX["{column_name}"]] {operator} "{expected_value}":
+"""
+            for agg in f_vect:
+                agg_func, agg_group_var, agg_column = Generator.parse_agg_names(agg)
+
+                if agg_group_var == group_var:
+                    if agg_func == "sum":
+                        code+= f"""        mf_struct[group_key].{agg} += row[COLUMN_INDEX["{agg_column}"]]\n"""
+                    elif agg_func == "count":
+                        code+=f"""        mf_struct[group_key].{agg} += 1\n"""
+                    elif agg_func == "max":
+                        code += f"""        if mf_struct[group_key].{agg} == 0 or row[COLUMN_INDEX["{agg_column}"]] > mf_struct[group_key].{agg}: 
+            mf_struct[group_key].{agg} = row[COLUMN_INDEX["{agg_column}"]]\n"""
+                    elif agg_func == "min":
+                        code += f"""        if mf_struct[group_key].{agg} == 0 or row[COLUMN_INDEX["{agg_column}"]] < mf_struct[group_key].{agg}:
+            mf_struct[group_key].{agg} = row[COLUMN_INDEX["{agg_column}"]]\n"""
+                    elif agg_func == "avg":
+                        code += f"""        mf_struct[group_key].{agg}_sum += row[COLUMN_INDEX["{agg_column}"]]
+        mf_struct[group_key].{agg}_count += 1"""
+            
+            code +="\n"
+        return code
+    
     def generate_import_and_connection():
         """
         This function generates the PostgreSQL code that we want 
@@ -238,6 +334,9 @@ for group_key, entry in mf_struct.items():
         row_output += str(getattr(entry, attr)).ljust(20)
 
     print(row_output)
+    #remove the two lines below if the table output function is no longer at the bottom of the output code file
+    cur.close() 
+    conn.close()
     """
 
     def convert_to_mf_struct(phi_params):
@@ -252,9 +351,19 @@ for group_key, entry in mf_struct.items():
         for v in phi_params["V"]:
             select_attributes += f"        self.{v} = ''\n" #4 spaces replaces tabs bc you cannot mix space and tabs in python
 
-        #initialise aggregate functions (avg, min, max) with 0
+
         for f in phi_params["F"]:
-            select_attributes += f"        self.{f} = 0\n"
+            select_attributes += f"        self.{f} = 0\n" #initialise aggregate functions (avg, min, max, count, sum) with 0
+
+            #avg is calculated from sum/count, so sum and count need to be initialized with it. 
+            #in MF struct avg initialization will show up as (for example): 
+                #avg_1_quant = 0  (initialized above)
+                #avg_1_quant_sum = 0 (initialized below)
+                #avg_1_quant_count = 0 (initialized below)
+            agg_func, group_var, column = Generator.parse_agg_names(f)
+            if agg_func == "avg":
+                select_attributes += f"        self.{f}_sum = 0\n"
+                select_attributes += f"        self.{f}_count = 0\n"
         
         mf_struct = f"""\nclass MFStruct:
     def __init__(self):
@@ -262,11 +371,40 @@ for group_key, entry in mf_struct.items():
 mf_struct ={{}}\n"""
         return mf_struct
     
+    def generate_final_avg(phi_params):
+        """
+        This function will calculate the average for the grouping variables with 'avg', after all 
+        the scans are complete and the sum and count for those variables were calculated
+
+        :returns: string of avg for each grouping variable
+        """
+
+        f_vect = phi_params["F"]
+        code = """
+# Finalize AVG values
+for group_key, entry in mf_struct.items():
+"""
+        has_avg = False
+
+        for agg in f_vect:
+            agg_func, group_var, column = Generator.parse_agg_names(agg)
+            if agg_func == "avg":
+                has_avg=True
+                code += f"""        
+        if entry.{agg}_count != 0:
+            entry.{agg} = entry.{agg}_sum / entry.{agg}_count"""
+        
+        if has_avg == False:
+            return ''
+        return code + "\n"
+    
     def generate_full_program(phi_params):
         return (
         Generator.generate_import_and_connection()
         + Generator.convert_to_mf_struct(phi_params)
         + Generator.first_scan_create_groups(phi_params)
+        + Generator.generate_aggregates_scanning_code(phi_params)
+        + Generator.generate_final_avg(phi_params)
         + Generator.generate_output_test(phi_params) #this is for debugging the creation of groups and can be deleted later
     )
 
