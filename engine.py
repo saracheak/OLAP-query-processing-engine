@@ -295,7 +295,7 @@ for group_key, entry in mf_struct.items():
 HAVING_CONDITIONS = {translated_having}
 filtered_groups = []
 for group_key, entry in mf_struct.items():
-    if eval("{translated_having}"):
+    if eval("{translated_having}"):                    #this evaluates the having condition, if it satisfies it will be added to 'filtered_groups'
         filtered_groups.append((group_key, entry))
         """
         return code + '\n'
@@ -319,13 +319,14 @@ for attr in SELECT_ATTRIBUTES:
 print(header)
 print("-" * len(header))
 
-# Print one row per group
+#if there is a HAVING condition, use the filtered groups NOT the mf struct
 final_groups = ""
 if HAVING_CONDITIONS != "":
     final_groups = filtered_groups
 else:
     final_groups = mf_struct.items()
 
+# Print one row per group
 for group_key, entry in final_groups:
     row_output = str(group_key).ljust(20)
 
