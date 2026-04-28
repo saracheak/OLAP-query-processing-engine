@@ -9,10 +9,6 @@ try:
 
     cur = conn.cursor() #prepares to run the queries
         
-    cur.execute("SELECT version();")
-    db_version = cur.fetchone() #retrieves data row by row equivalent to: "for row in cur:"
-    print(f"Connected to: {db_version}")
-
     #cur.close()
     #conn.close()
 except Exception:
@@ -63,7 +59,7 @@ for row in cur:
         for v in GROUPING_ATTRIBUTES:
             setattr(mf_struct[group_key], v, row[COLUMN_INDEX[v]])
 
-#Scan for gropuing variable 1
+#Scan for grouping variable 1
 cur.execute("SELECT * FROM sales;")
 
 for row in cur:
@@ -83,7 +79,7 @@ for row in cur:
         mf_struct[group_key].avg_1_quant_sum += row[COLUMN_INDEX["quant"]]
         mf_struct[group_key].avg_1_quant_count += 1
 
-#Scan for gropuing variable 2
+#Scan for grouping variable 2
 cur.execute("SELECT * FROM sales;")
 
 for row in cur:
@@ -97,7 +93,7 @@ for row in cur:
         mf_struct[group_key].sum_2_quant += row[COLUMN_INDEX["quant"]]
 
 
-#Scan for gropuing variable 3
+#Scan for grouping variable 3
 cur.execute("SELECT * FROM sales;")
 
 for row in cur:
@@ -112,14 +108,23 @@ for row in cur:
         mf_struct[group_key].avg_3_quant_sum += row[COLUMN_INDEX["quant"]]
         mf_struct[group_key].avg_3_quant_count += 1
 
-# Finalize AVG values
+#Finalize AVG values
 for group_key, entry in mf_struct.items():
         
         if entry.avg_1_quant_count != 0:
             entry.avg_1_quant = entry.avg_1_quant_sum / entry.avg_1_quant_count        
         if entry.avg_3_quant_count != 0:
             entry.avg_3_quant = entry.avg_3_quant_sum / entry.avg_3_quant_count
-print("\nProject Output Debugging Table:")
+
+#Finalize HAVING values
+HAVING_CONDITIONS = entry.sum_1_quant > 2 * entry.sum_2_quant and entry.avg_1_quant > entry.avg_3_quant
+filtered_groups = []
+for group_key, entry in mf_struct.items():
+    if eval("entry.sum_1_quant > 2 * entry.sum_2_quant and entry.avg_1_quant > entry.avg_3_quant"):
+        filtered_groups.append((group_key, entry))
+        
+
+print("\n\nProject Output Debugging Table:")
 
 SELECT_ATTRIBUTES = ['cust', 'sum_1_quant', 'count_1_quant', 'max_1_quant', 'min_1_quant', 'sum_2_quant', 'sum_3_quant', 'avg_1_quant', 'avg_3_quant']
 # Print table header
@@ -130,11 +135,20 @@ print(header)
 print("-" * len(header))
 
 # Print one row per group
-for group_key, entry in mf_struct.items():
+final_groups = ""
+if HAVING_CONDITIONS != "":
+    final_groups = filtered_groups
+else:
+    final_groups = mf_struct.items()
+
+for group_key, entry in final_groups:
     row_output = str(group_key).ljust(20)
 
     for attr in SELECT_ATTRIBUTES:
         row_output += str(getattr(entry, attr)).ljust(20)
 
     print(row_output)
+    #remove the two lines below if the table output function is no longer at the bottom of the output code file
+cur.close() 
+conn.close()
     
