@@ -15,7 +15,7 @@ import os
 
 class Generator:
     """
-    This class contains functions that i) interact with the user, or ii) produce output code
+    This class contains functions that either i) interact with the user, or ii) produce output code
     """
 
     def read_input_to_phi(input_file):
@@ -162,53 +162,35 @@ for row in cur:
 """
     
     def generate_aggregates_scanning_code(phi_params):
-        '''
-        Generates code for aggregate functions in F from phi_params.
-        Complexity needs to be improved, but currently works on 
-        simple params like 
-        1. state='NY'
-        2. state='NJ'
-
+        """
+        Generates code for aggregate functions in F from phi_params. Includes processing for CONDITION-VECT([σ]) conditions.
+        
         :returns: code for calculating specified aggregate (sum, count, max, min, avg)
         :rtype: string
-        '''
-
         """
-        This function is used to split the predicate based on the operation
-        Example: state!='NY' becomes {'state', '!=', 'NY'}
-
-        :returns: value to the left of operation sign, operation sign, and value to the right of the operation sign
-        :rtype: string
-        """
-        def split_condition(condition_part):
-            """
-            cleans CONDITION-VECT ([σ]) values
-            """
-            operators = ["!=", "<=", ">=", "==", "<", ">"]
-            for op in operators:
-                if op in condition_part:
-                    left, right = condition_part.split(op) #dynamically splits string around operation sign
-                    column = left.strip()
-                    value = right.strip().replace("'", "").replace("’", "") #get rid of extra quotes around value
-                    return column, op, value
-
+        grouping_attributes = phi_params["V"]
         f_vect = phi_params["F"]
         predicates = phi_params["p"]
+        # print(predicates)
+
+        #grouping attributes is currently a tuple so we make it a string
+        if len(grouping_attributes) == 1:
+            grouping_attributes_str = f"{grouping_attributes[0]},"
+        else:
+            grouping_attributes_str = ", ".join(grouping_attributes)
 
         #required instead of returning code block bc we add to the block
         #depending on what functions the user chose 
-        code = "" 
+        code = ""
 
         for p in predicates: 
-            #ensures calculations are done for each predicate
-            #example: 1.state='NY'
+            #processing for each predicate, e.g. "X.state='NY' and X.month=month," becomes group_var = "X", condition_part = "state=='NY' and month==month"
+            group_var, condition_part = HelperFunctions.process_predicate(p)
 
-            group_var = p.split(".")[0].strip() #splits grouping varible number, so based on the example above group_var = 1
-            condition_part = p.split(".", 1)[1] #condition part = "state='NY'"
-            column_name, operator, expected_value = split_condition(condition_part)
+            #splits predicate into e.g. [{"column": "state", "op": "==", "value": "'NY'"}, {"column": "month", "op": "==", "value": "month"}]
+            predicate_list = HelperFunctions.split_predicate(condition_part)
 
-            #need a variable to store code rather than returning at at once bc the functions added are 
-            #dependent on the the query given
+            #need a variable to store code rather than returning at at once bc the functions added are dependent on the the query given
             code+=f"""
 #Scan for grouping variable {group_var}
 cur.execute("SELECT * FROM sales;")
@@ -219,9 +201,31 @@ for row in cur:
         group_values.append(row[COLUMN_INDEX[v]])
 
     group_key = tuple(group_values)
-
-    if row[COLUMN_INDEX["{column_name}"]] {operator} "{expected_value}":
+    {grouping_attributes_str} = group_key
+    
 """
+            #go through predicate_list and put each in the format of row[COLUMN_INDEX['{column}']] {op} {value} and append to code
+            full_condition = []
+
+            for pred in predicate_list:
+                column = pred["column"]
+                op = pred["op"]
+                value = pred["value"]
+
+                # If the value is one of our grouping attributes, it refers to the current group's value
+                if value in grouping_attributes:
+                    value = value
+                else:
+                    # Otherwise, it's a literal like 'NY' or 2020
+                    value = f"'{value}'"
+
+                full_condition.append(f"row[COLUMN_INDEX['{column}']] {op} {value}")
+
+            #full_condition E.g. row[COLUMN_INDEX['{column}']] {op} {value} and row[COLUMN_INDEX['{column}']] {op} {value} etc...
+            full_condition = " and ".join(full_condition)
+            code += f"    if {full_condition}:\n" #add CONDITION-VECT([σ]) if to output.py
+
+            #aggregate function calculations
             for agg in f_vect:
                 agg_func, agg_group_var, agg_column = HelperFunctions.parse_agg_names(agg)
 
@@ -280,26 +284,29 @@ for group_key, entry in mf_struct.items():
         :rtype: string
         """
         f_vect = phi_params["F"]
-        having_conditions = phi_params["G"][0]
+        if phi_params["G"]:
 
-        #only run if there is a having condition
-        if having_conditions != "":
-            
-            translated_having = having_conditions
-            for f in f_vect:
-                translated_having = translated_having.replace(f, f"entry.{f}")
-            translated_having = translated_having.replace("OR", "or").replace("AND", "and") #handles capitalised or lowercase AND/OR
-            
-            code = f"""
+            having_conditions = phi_params["G"][0]
+
+            #only run if there is a having condition
+            if having_conditions != "":
+                
+                translated_having = having_conditions
+                for f in f_vect:
+                    translated_having = translated_having.replace(f, f"entry.{f}")
+                translated_having = translated_having.replace("OR", "or").replace("AND", "and") #handles capitalised or lowercase AND/OR
+                
+                code = f"""
 #Finalize HAVING values
 HAVING_CONDITIONS = {translated_having}
 filtered_groups = []
 for group_key, entry in mf_struct.items():
-    if eval("{translated_having}"):                    #this evaluates the having condition, if it satisfies it will be added to 'filtered_groups'
+    if eval("{translated_having}"): #this evaluates the having condition, if it satisfies it will be added to 'filtered_groups'
         filtered_groups.append((group_key, entry))
         """
-        return code + '\n'
-    pass
+            return code + '\n'
+        else:
+            return ""
 
     def generate_output_test(phi_params):
         """
@@ -307,6 +314,14 @@ for group_key, entry in mf_struct.items():
         It can be deleted later once we don't need to debug
         """
         selected_attributes = phi_params["S"]
+
+        #output variable 'final_groups' depends on whether there is a HAVING clause
+        having = phi_params["G"]
+        if having:
+            having_exists = True
+        else:
+            having_exists = False
+        
 
         return f"""
 print("\\n\\nProject Output Debugging Table:")
@@ -321,7 +336,7 @@ print("-" * len(header))
 
 #if there is a HAVING condition, use the filtered groups NOT the mf struct
 final_groups = ""
-if HAVING_CONDITIONS != "":
+if {having_exists}: #this flag is True if there was a HAVING, False if no HAVING condition
     final_groups = filtered_groups
 else:
     final_groups = mf_struct.items()
@@ -360,7 +375,7 @@ class HelperFunctions:
         This function takes in any string and writes it to another file 
         """
         try:
-            with open("example_output.py", "w") as file:
+            with open("example_outputs/output.py", "w") as file:
                 file.write(file_content)
         except:
             print("Could not write to file")
@@ -447,6 +462,46 @@ class HelperFunctions:
 {select_attributes}
 mf_struct ={{}}\n"""
         return mf_struct
+    
+    def process_predicate(predicate):
+        """
+        Takes "X.state='NY' and X.month=month"
+        Returns ("X", "state='NY' and month=month")
+        """
+        #get the grouping variable, e.g. X
+        group_var = predicate.split(".")[0].strip()
+        
+        #remove internal group_var, therefore condition_part = "state='NY' and month=month"
+        condition_part = predicate.replace(f"{group_var}.", "")
+        
+        return group_var, condition_part
+    
+    def split_predicate(condition_part):
+        """
+        This function cleans predicate values by splitting the predicate based on the operation and if there are multiple predicates in one line
+        For example:
+            condition_part = "state='NY' and month=month"
+            returns [{"column": "state", "op": "==", "value": "'NY'"}, {"column": "month", "op": "==", "value": "month"}]
+        :returns: each dictionary contains values for column name, operator, value
+        :rtype: list of dict
+        """
+        results = []
+        indiv_predicates = [p.strip() for p in condition_part.split(" and ")] #split condition into individual predicates (e.g. for state='NY' and month=month)
+        operators = ["!=", "<=", ">=", "==", "=", "<", ">"]
+        
+        for pred in indiv_predicates:
+            for op in operators:
+                if op in pred:
+                    parts = pred.split(op, 1) #splits by op only once
+                    left = parts[0]
+                    right = parts[1]
+                    column = left.strip()
+                    value = right.strip().replace("'", "").replace("’", "") #get rid of extra quotes around value
+                    py_op = "==" if op == "=" else op
+                    results.append({"column": column, "op": py_op, "value": value})
+                    break
+        # print(results)
+        return results
     
     def parse_agg_names(agg_name):
         """
