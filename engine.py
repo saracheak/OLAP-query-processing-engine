@@ -196,34 +196,44 @@ for row in cur:
 cur.execute("SELECT * FROM sales;")
 
 for row in cur:
-    group_values = []
-    for v in GROUPING_ATTRIBUTES:
-        group_values.append(row[COLUMN_INDEX[v]])
 
-    group_key = tuple(group_values)
-    {grouping_attributes_str} = group_key
+    for group_key, entry in mf_struct.items():
+        # Unpack the 'anchor' values for this group
+        {grouping_attributes_str} = group_key
     
 """
             #go through predicate_list and put each in the format of row[COLUMN_INDEX['{column}']] {op} {value} and append to code
             full_condition = []
+            processed_attributes = []
 
+            #This for loop goes through each of the predicates provided by the user (e.g. X.state = 'NY' or X.month < month)
             for pred in predicate_list:
-                column = pred["column"]
-                op = pred["op"]
-                value = pred["value"]
+                column, op, value = pred["column"], pred["op"], pred["value"]
 
                 # If the value is one of our grouping attributes, it refers to the current group's value
                 if value in grouping_attributes:
                     value = value
+                    processed_attributes.append(value)
                 else:
                     # Otherwise, it's a literal like 'NY' or 2020
                     value = f"'{value}'"
 
                 full_condition.append(f"row[COLUMN_INDEX['{column}']] {op} {value}")
+            
+            #This for loop goes through each of the predicates NOT provided by the user but is implicitely understood, we have to add an equality check
+            #e.g. adds row.cust = cust. This makes sure that the data doesn't go into other rows, so e.g. only Dan's rows are updated
+            #We do this because we can't just add an equality check to every row (in previous for loop), because then we wouldn't be able to do emf queries
+            #such as moving averages
+            for attr in grouping_attributes:
+                if attr not in processed_attributes:
+                    full_condition.append(f"row[COLUMN_INDEX['{attr}']] == {attr}")
 
-            #full_condition E.g. row[COLUMN_INDEX['{column}']] {op} {value} and row[COLUMN_INDEX['{column}']] {op} {value} etc...
+
+            #full_condition includes all the predicates (user provided + implicit)
+            # E.g. row[COLUMN_INDEX['{column}']] {op} {value} and row[COLUMN_INDEX['{column}']] {op} {value} etc...
             full_condition = " and ".join(full_condition)
-            code += f"    if {full_condition}:\n" #add CONDITION-VECT([σ]) if to output.py
+            
+            code += f"        if {full_condition}:\n" #add CONDITION-VECT([σ]) if to output.py
 
             #aggregate function calculations
             for agg in f_vect:
@@ -231,20 +241,21 @@ for row in cur:
 
                 if agg_group_var == group_var:
                     if agg_func == "sum":
-                        code+= f"""        mf_struct[group_key].{agg} += row[COLUMN_INDEX["{agg_column}"]]\n"""
+                        code+= f"""            mf_struct[group_key].{agg} += row[COLUMN_INDEX["{agg_column}"]]\n"""
                     elif agg_func == "count":
-                        code+=f"""        mf_struct[group_key].{agg} += 1\n"""
+                        code+=f"""            mf_struct[group_key].{agg} += 1\n"""
                     elif agg_func == "max":
-                        code += f"""        if mf_struct[group_key].{agg} == 0 or row[COLUMN_INDEX["{agg_column}"]] > mf_struct[group_key].{agg}: 
-            mf_struct[group_key].{agg} = row[COLUMN_INDEX["{agg_column}"]]\n"""
+                        code += f"""            if mf_struct[group_key].{agg} == 0 or row[COLUMN_INDEX["{agg_column}"]] > mf_struct[group_key].{agg}: 
+                mf_struct[group_key].{agg} = row[COLUMN_INDEX["{agg_column}"]]\n"""
                     elif agg_func == "min":
-                        code += f"""        if mf_struct[group_key].{agg} == 0 or row[COLUMN_INDEX["{agg_column}"]] < mf_struct[group_key].{agg}:
-            mf_struct[group_key].{agg} = row[COLUMN_INDEX["{agg_column}"]]\n"""
+                        code += f"""            if mf_struct[group_key].{agg} == 0 or row[COLUMN_INDEX["{agg_column}"]] < mf_struct[group_key].{agg}:
+                mf_struct[group_key].{agg} = row[COLUMN_INDEX["{agg_column}"]]\n"""
                     elif agg_func == "avg":
-                        code += f"""        mf_struct[group_key].{agg}_sum += row[COLUMN_INDEX["{agg_column}"]]
-        mf_struct[group_key].{agg}_count += 1"""
-            
+                        code += f"""            mf_struct[group_key].{agg}_sum += row[COLUMN_INDEX["{agg_column}"]]
+            mf_struct[group_key].{agg}_count += 1\n"""
+        
             code +="\n"
+
         return code
     
     
@@ -268,8 +279,8 @@ for group_key, entry in mf_struct.items():
             if agg_func == "avg":
                 has_avg=True
                 code += f"""        
-        if entry.{agg}_count != 0:
-            entry.{agg} = entry.{agg}_sum / entry.{agg}_count"""
+    if entry.{agg}_count != 0:
+        entry.{agg} = entry.{agg}_sum / entry.{agg}_count"""
         
         if has_avg == False:
             return ''

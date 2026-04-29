@@ -7,6 +7,6 @@ prod, month
 F-VECT([F]):
 avg_X_quant, avg_Y_quant
 SELECT CONDITION-VECT([σ]):
-X.state='NY' and X.month=month
-Y.prod=prod and Y.month=month
+X.prod=prod and X.month<month
+Y.prod=prod and Y.month>month
 HAVING_CONDITION(G):

@@ -58,39 +58,37 @@ for row in cur:
 cur.execute("SELECT * FROM sales;")
 
 for row in cur:
-    group_values = []
-    for v in GROUPING_ATTRIBUTES:
-        group_values.append(row[COLUMN_INDEX[v]])
 
-    group_key = tuple(group_values)
-    prod, month = group_key
+    for group_key, entry in mf_struct.items():
+        # Unpack the 'anchor' values for this group
+        prod, month = group_key
     
-    if row[COLUMN_INDEX['state']] == 'NY' and row[COLUMN_INDEX['month']] == month:
-        mf_struct[group_key].avg_X_quant_sum += row[COLUMN_INDEX["quant"]]
-        mf_struct[group_key].avg_X_quant_count += 1
+        if row[COLUMN_INDEX['prod']] == prod and row[COLUMN_INDEX['month']] < month:
+            mf_struct[group_key].avg_X_quant_sum += row[COLUMN_INDEX["quant"]]
+            mf_struct[group_key].avg_X_quant_count += 1
+
 
 #Scan for grouping variable Y
 cur.execute("SELECT * FROM sales;")
 
 for row in cur:
-    group_values = []
-    for v in GROUPING_ATTRIBUTES:
-        group_values.append(row[COLUMN_INDEX[v]])
 
-    group_key = tuple(group_values)
-    prod, month = group_key
+    for group_key, entry in mf_struct.items():
+        # Unpack the 'anchor' values for this group
+        prod, month = group_key
     
-    if row[COLUMN_INDEX['prod']] == prod and row[COLUMN_INDEX['month']] == month:
-        mf_struct[group_key].avg_Y_quant_sum += row[COLUMN_INDEX["quant"]]
-        mf_struct[group_key].avg_Y_quant_count += 1
+        if row[COLUMN_INDEX['prod']] == prod and row[COLUMN_INDEX['month']] > month:
+            mf_struct[group_key].avg_Y_quant_sum += row[COLUMN_INDEX["quant"]]
+            mf_struct[group_key].avg_Y_quant_count += 1
+
 
 #Finalize AVG values
 for group_key, entry in mf_struct.items():
         
-        if entry.avg_X_quant_count != 0:
-            entry.avg_X_quant = entry.avg_X_quant_sum / entry.avg_X_quant_count        
-        if entry.avg_Y_quant_count != 0:
-            entry.avg_Y_quant = entry.avg_Y_quant_sum / entry.avg_Y_quant_count
+    if entry.avg_X_quant_count != 0:
+        entry.avg_X_quant = entry.avg_X_quant_sum / entry.avg_X_quant_count        
+    if entry.avg_Y_quant_count != 0:
+        entry.avg_Y_quant = entry.avg_Y_quant_sum / entry.avg_Y_quant_count
 
 print("\n\nProject Output Debugging Table:")
 
