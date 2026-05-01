@@ -570,39 +570,13 @@ if __name__ == "__main__":
             HelperFunctions.write_to_file(mf_struct_string)
             break
         elif option == "user":
-            print("Ensure multi-valued parameters are separated by ','\n")
+            print("Ensure multi-valued parameters (S, V, F, p) are separated by ','\n")
 
             param_S = HelperFunctions.validate_multi_value_input_string(input("Enter S param:\n").strip())
             param_n = HelperFunctions.validate_n_is_int(input("Enter n param:\n").strip())
             param_V = HelperFunctions.validate_multi_value_input_string(input("Enter V param:\n").strip())
             param_F = HelperFunctions.validate_multi_value_input_string(input("Enter F param:\n").strip())
-            
-            #param_p is a string. we need to add each condition individually with a comma so param_p is in the
-            #correct format for validate_multi_value_input_string function to still work
-            while True:
-                param_p = input("Enter one sigma param:\n").strip()
-
-                anotherEntry = input("Do you have another sigma param? (Y or N)?\n").strip().upper() #this will allow us to store each condition in p properly
-                while True: 
-                    if anotherEntry != "Y" and anotherEntry != "N":
-                        anotherEntry = input(print("Invalid input: Enter 'Y' or 'N'\n")).strip()
-                    break
-                if anotherEntry == "Y":
-                    while True:
-                        nextEntry = input("Enter sigma param:\n").strip()
-                        param_p += f", {nextEntry}" #make param_p a comma seperated string
-                        anotherEntry = input("Do you have another sigma param? (Y or N)?\n").strip().upper()
-                        while True: 
-                            if anotherEntry != "Y" and anotherEntry != "N":
-                                anotherEntry = input("Invalid input: Enter 'Y' or 'N'\n").strip()
-                            break
-                        if anotherEntry == "Y":
-                            continue
-                        else:
-                            break #breaks out of loop
-                break #no else needed bc that means only 1 param_p was entered
-            param_p = HelperFunctions.validate_multi_value_input_string((param_p))
-
+            param_p = HelperFunctions.validate_multi_value_input_string(input("Enter p param:\n").strip())
             param_G = input("Enter G param:\n").strip()   #unsure what to do for input validation so we did not add any for G param
             phi_params = Generator.user_input_to_phi(param_S, param_n, param_V, param_F, param_p, param_G)
             print(phi_params)
