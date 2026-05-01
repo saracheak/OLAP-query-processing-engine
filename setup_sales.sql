@@ -1,6 +1,7 @@
 /*---------------------------------------------------------------------
 
 This file will create and fill in the sales table in the users local DB. 
+Note: each row of the sales table is a tuple.
 
 ---------------------------------------------------------------------*/
 

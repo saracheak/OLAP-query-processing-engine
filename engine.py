@@ -126,14 +126,28 @@ except Exception:
 
     def first_scan_create_groups(phi_params):
         """
-        This function generates the first scan code that create groups based on the grouping on the grouping attributes in V.
+        This function generates the first scan code that create groups based on the grouping of the grouping attributes in V.
+        It creates one MFStruct entry for each unique group based on the grouping attributes.
 
         :returns: mf structure for the groups
         :rtype: string
         """
         grouping_attributes = phi_params["V"]
         
-        return f"""COLUMN_INDEX = {{
+        #In the setup_sales.sql database, each row contains one record, which is a tuple of values. 
+        #Example: row1 = ("Dan", "Apple", 5, 3, 2023, "NY", 100, "2023-03-01")
+        #         row2 = ("Claire", "Milk", 5, 3, 2023, "NY", 100, "2023-03-01")
+
+        #We are looping through the rows using the cursor and picking specific column values to assess. We have to index
+        #into each row to find a specific column:
+        #Examples: row1[0] = "Dan", row1[1] = "Apple"
+        #          row2[0] = "Claire", row2[1] = "Milk"
+
+        #Instead of remembering row[0] = "cust" and row[1] = "product", we created the COLUMN_INDEX dictionary so we can just refer 
+        #to the column name itself in our code. This makes the code clearer to read and write. 
+
+        #In our code: "row[COLUMN_INDEX["cust"]]" === row[0]="cust"
+        return f"""COLUMN_INDEX = {{ 
     "cust": 0,
     "prod": 1,
     "day": 2,
@@ -146,18 +160,24 @@ except Exception:
 GROUPING_ATTRIBUTES = {grouping_attributes}
 cur.execute("SELECT * FROM sales;") #execute sends the SQL query to PostgreSQL, and the columns retrieved are stored in the cursor
 
+#Each 'row' is a tuple representing one record; columns are accessed by index within the row
 for row in cur:
     group_values = []
 
-    for v in GROUPING_ATTRIBUTES:
+    #Add each column from the database to group_values that are specified in v. 
+    #For example row[COLUMN_INDEX["cust"]]===row[0] and adds the first value of every row to group_values. 
+    for v in GROUPING_ATTRIBUTES: 
         group_values.append(row[COLUMN_INDEX[v]])
     
-    group_key = tuple(group_values)
+    group_key = tuple(group_values) 
 
-    if group_key not in mf_struct:
-        mf_struct[group_key] = MFStruct()
+    #if the group does not already exist, the group key becomes the dictionary key in mfstruct. This ensures we get every combination of group keys
+    if group_key not in mf_struct: 
+        mf_struct[group_key] = MFStruct() 
 
-        for v in GROUPING_ATTRIBUTES:
+        # Store the grouping attribute value (e.g., cust = "Dan") inside this group's MFStruct object
+        #Example: self.cust = '' initially. After self.cust = 'Dan'
+        for v in GROUPING_ATTRIBUTES: 
             setattr(mf_struct[group_key], v, row[COLUMN_INDEX[v]])
 """
     
@@ -275,14 +295,14 @@ for group_key, entry in mf_struct.items():
         has_avg = False
 
         for agg in f_vect:
-            agg_func, group_var, column = HelperFunctions.parse_agg_names(agg)
+            agg_func, group_var, column = HelperFunctions.parse_agg_names(agg) # agg_func becomes equal to the aggregate avg, sum, etc.
             if agg_func == "avg":
                 has_avg=True
                 code += f"""        
     if entry.{agg}_count != 0:
         entry.{agg} = entry.{agg}_sum / entry.{agg}_count"""
         
-        if has_avg == False:
+        if has_avg == False: #no avg were asked to be calculated
             return ''
         return code + "\n"
     
@@ -321,8 +341,8 @@ for group_key, entry in mf_struct.items():
 
     def generate_output_test(phi_params):
         """
-        This function is for debugging and generates output to confirm that the function first_scan_create_groups(phi_params) successfully created the groups.
-        It can be deleted later once we don't need to debug
+        This function is generates an output table to confirm that the selected results are outputted and 
+        were filtered by the 1) grouping variables, 2) phi, and 3) having conidtion (if applicable).
         """
         selected_attributes = phi_params["S"]
 
@@ -397,13 +417,14 @@ class HelperFunctions:
         This function validates the user typed input variable is entered in the correct comma seperated 
         format and does not contain any empty values. They are re-prompted if their input is not in the
         correct format.
+        This function only applies to the parameters than can have multiple values: S, V, F, p
 
-        :returns: multi_value_param
+        :returns: multi_value_param in the correct comma seperated format
         :rtype: string
         """
         #split the input string based on commas
         while True:
-            parts = [p.strip() for p in multi_value_param.split(',')]
+            parts = [p.strip() for p in multi_value_param.split(',')] #splits each input and gets rid of extra white space
             
             if parts[0]=='':
                 print("Invalid input: at least one input must be provided.")
@@ -426,8 +447,8 @@ class HelperFunctions:
             
     def validate_n_is_int(n_param):
         """
-        This function validates the user typed input for n is an integer. They are re-prompted if their input is not in the
-        correct format.
+        This function validates the user typed input for n is an integer. 
+        An entry of 1 is valid but "one" would cause the user to be re-prompted. 
 
         :returns: n_param
         :rtype: string
@@ -460,9 +481,9 @@ class HelperFunctions:
 
             #avg is calculated from sum/count, so sum and count need to be initialized with it. 
             #in MF struct avg initialization will show up as (for example): 
-                #avg_1_quant = 0  (initialized above)
-                #avg_1_quant_sum = 0 (initialized below)
-                #avg_1_quant_count = 0 (initialized below)
+                #avg_1_quant = 0  (initialized above in - for f...)
+                #avg_1_quant_sum = 0 (initialized below in - if agg_func...)
+                #avg_1_quant_count = 0 (initialized below in - if agg_func...)
             agg_func, group_var, column = HelperFunctions.parse_agg_names(f)
             if agg_func == "avg":
                 select_attributes += f"        self.{f}_sum = 0\n"
@@ -518,8 +539,8 @@ mf_struct ={{}}\n"""
         """
         This function parses the aggregate name into the aggregate, number, and column
         Example Output:
-        sum_1_quant -> ("sum", "1", "quant")
-        avg_3_quant -> ("avg", "3", "quant")
+        sum_1_quant -> "sum", "1", "quant"
+        avg_3_quant -> "avg", "3", "quant"
 
         :returns: 3 strings with the corresponding aggregate, number, and column name from the input
         :rtype: string
@@ -545,8 +566,6 @@ if __name__ == "__main__":
                     filename = input("Enter file path:\n")
                 break
             phi_params = Generator.read_input_to_phi(filename)
-            #mf_struct_string = Generator.convert_to_mf_struct(phi_params)
-            #HelperFunctions.write_to_file(mf_struct_string)
             mf_struct_string = Generator.generate_full_program(phi_params)
             HelperFunctions.write_to_file(mf_struct_string)
             break
@@ -557,12 +576,39 @@ if __name__ == "__main__":
             param_n = HelperFunctions.validate_n_is_int(input("Enter n param:\n").strip())
             param_V = HelperFunctions.validate_multi_value_input_string(input("Enter V param:\n").strip())
             param_F = HelperFunctions.validate_multi_value_input_string(input("Enter F param:\n").strip())
-            param_p = HelperFunctions.validate_multi_value_input_string(input("Enter sigma param:\n").strip())
             
-            #IDK what to do for input validation here :/
-            param_G = input("Enter G param:\n").strip()
+            #param_p is a string. we need to add each condition individually with a comma so param_p is in the
+            #correct format for validate_multi_value_input_string function to still work
+            while True:
+                param_p = input("Enter one sigma param:\n").strip()
 
-            print(Generator.user_input_to_phi(param_S, param_n, param_V, param_F, param_p, param_G))
+                anotherEntry = input("Do you have another sigma param? (Y or N)?\n") #this will allow us to store each condition in p properly
+                while True: 
+                    if anotherEntry.upper() != "Y" or anotherEntry.upper() != "N":
+                        anotherEntry = input(print("Invalid input: Enter 'Y' or 'N'\n")).strip()
+                    break
+                if anotherEntry == "Y":
+                    while True:
+                        nextEntry = input("Enter sigma param:\n").strip()
+                        param_p += f", {nextEntry}" #make param_p a comma seperated string
+                        anotherEntry = input("Do you have another sigma param? (Y or N)?\n")
+                        while True: 
+                            if anotherEntry.upper() != "Y" or anotherEntry.upper() != "N":
+                                anotherEntry = input("Invalid input: Enter 'Y' or 'N'\n").strip()
+
+                            break
+                        if anotherEntry == "Y":
+                            continue
+                        else:
+                            break #breaks out of loop
+                break #no else needed bc that means only 1 param_p was entered
+            param_p = HelperFunctions.validate_multi_value_input_string((param_p))
+
+            param_G = input("Enter G param:\n").strip()   #unsure what to do for input validation so we did not add any for G param
+            phi_params = Generator.user_input_to_phi(param_S, param_n, param_V, param_F, param_p, param_G)
+            print(phi_params)
+            mf_struct_string = Generator.generate_full_program(phi_params)
+            HelperFunctions.write_to_file(mf_struct_string)
             break
         else:
             print("Invalid input. Please enter 'file' or 'user")
