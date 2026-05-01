@@ -582,20 +582,19 @@ if __name__ == "__main__":
             while True:
                 param_p = input("Enter one sigma param:\n").strip()
 
-                anotherEntry = input("Do you have another sigma param? (Y or N)?\n") #this will allow us to store each condition in p properly
+                anotherEntry = input("Do you have another sigma param? (Y or N)?\n").strip().upper() #this will allow us to store each condition in p properly
                 while True: 
-                    if anotherEntry.upper() != "Y" or anotherEntry.upper() != "N":
+                    if anotherEntry != "Y" and anotherEntry != "N":
                         anotherEntry = input(print("Invalid input: Enter 'Y' or 'N'\n")).strip()
                     break
                 if anotherEntry == "Y":
                     while True:
                         nextEntry = input("Enter sigma param:\n").strip()
                         param_p += f", {nextEntry}" #make param_p a comma seperated string
-                        anotherEntry = input("Do you have another sigma param? (Y or N)?\n")
+                        anotherEntry = input("Do you have another sigma param? (Y or N)?\n").strip().upper()
                         while True: 
-                            if anotherEntry.upper() != "Y" or anotherEntry.upper() != "N":
+                            if anotherEntry != "Y" and anotherEntry != "N":
                                 anotherEntry = input("Invalid input: Enter 'Y' or 'N'\n").strip()
-
                             break
                         if anotherEntry == "Y":
                             continue
