@@ -45,7 +45,7 @@ Once installation is complete and you are in the virtual environment, to start g
 ```
 python3 engine.py
 ```
-and follow the prompts. 
+and follow the prompts. For files, look at the filenames in the example input folder and the input file path will be in the form: example_inputs/{filename}
 Then run 
 ```
 python3 example_outputs/output{#}.py
