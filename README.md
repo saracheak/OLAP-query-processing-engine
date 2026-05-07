@@ -41,8 +41,6 @@ ALTER USER postgres WITH PASSWORD 'password';
 Alternatively, you can use your own PostgreSQL username and update the connection settings in the code.
 
 ## Running Queries
-Once installation is complete and you are in the virtual environment, run:
-```bash
-psql -U postgres -d sales
-```
-which will give you access to the sales database. You will see "sales=# " and from there you can enter your SQL queries
+Once installation is complete and you are in the virtual environment, to start generating queries run:
+python3 engine.py and follow the prompts
+Then run python3 example_outputs/output{#}.py to execute the query you created.
