@@ -345,9 +345,8 @@ for group_key, entry in mf_struct.items():
     if eval("{translated_having}"): #this evaluates the having condition, if it satisfies it will be added to 'filtered_groups'
         filtered_groups.append((group_key, entry))
         """
-            return code + '\n'
-        else:
-            return ""
+                return code + '\n'
+        return ""
 
     def generate_output_test(phi_params):
         """
@@ -358,7 +357,7 @@ for group_key, entry in mf_struct.items():
 
         #output variable 'final_groups' depends on whether there is a HAVING clause
         having = phi_params["G"]
-        if having:
+        if having and having[0] != "":
             having_exists = True
         else:
             having_exists = False
