@@ -42,5 +42,8 @@ Alternatively, you can use your own PostgreSQL username and update the connectio
 
 ## Running Queries
 Once installation is complete and you are in the virtual environment, to start generating queries run:
-python3 engine.py and follow the prompts
-Then run python3 example_outputs/output{#}.py to execute the query you created.
+```python3 engine.py```
+and follow the prompts. 
+Then run 
+```python3 example_outputs/output{#}.py```
+to execute the query you created and you will see the results in the terminal. 
