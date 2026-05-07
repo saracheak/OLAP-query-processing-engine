@@ -416,8 +416,15 @@ class HelperFunctions:
         This function takes in any string and writes it to another file 
         """
         try:
-            with open("example_outputs/output.py", "w") as file:
+            #write output to the output folder with incrementing numbers so the file does not keep overwriting itself
+            output_num = 1
+            while os.path.exists(f"example_outputs/output{output_num}.py"):
+                output_num += 1
+
+            filename = f"example_outputs/output{output_num}.py"
+            with open(filename, "w") as file:
                 file.write(file_content)
+                print(f"Output written to: {filename}")
         except:
             print("Could not write to file")
             exit(1)
