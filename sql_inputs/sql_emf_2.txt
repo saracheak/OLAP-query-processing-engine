@@ -1,0 +1,20 @@
+--For each customer and product, find the customer's total and average sales, and total sales for all other customers for that product (where sales > 10)
+WITH T1 AS (
+    SELECT cust, prod, SUM(quant) as my_total, AVG(quant) as my_avg
+    FROM sales
+    GROUP BY cust, prod
+),
+T2 AS (
+    SELECT prod, SUM(quant) as total_sold
+    FROM sales
+    GROUP BY prod
+)
+SELECT 
+    T1.cust, 
+    T1.prod, 
+    T1.my_total as sum_1_quant, 
+    T1.my_avg as avg_1_quant,
+    (T2.total_sold - T1.my_total) as sum_2_quant
+FROM T1
+JOIN T2 ON T1.prod = T2.prod
+WHERE T1.my_total > 10;

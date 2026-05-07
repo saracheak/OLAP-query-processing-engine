@@ -1,0 +1,13 @@
+SELECT ATTRIBUTE(S):
+prod, sum_X_quant, sum_Y_quant, sum_Z_quant
+NUMBER OF GROUPING VARIABLES(n):
+3
+GROUPING ATTRIBUTES(V):
+prod
+F-VECT([F]):
+sum_X_quant, sum_Y_quant, sum_Z_quant
+SELECT CONDITION-VECT([σ]):
+X.month=1
+Y.month=2
+Z.month=3
+HAVING_CONDITION(G):

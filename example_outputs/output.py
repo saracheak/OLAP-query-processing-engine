@@ -17,19 +17,14 @@ except Exception:
 
 class MFStruct:
     def __init__(self):
-        self.cust = ''
-        self.sum_1_quant = 0
-        self.count_1_quant = 0
-        self.max_1_quant = 0
-        self.min_1_quant = 0
+        self.prod = ''
+        self.month = ''
         self.avg_1_quant = 0
         self.avg_1_quant_sum = 0
         self.avg_1_quant_count = 0
-        self.sum_2_quant = 0
-        self.sum_3_quant = 0
-        self.avg_3_quant = 0
-        self.avg_3_quant_sum = 0
-        self.avg_3_quant_count = 0
+        self.avg_2_quant = 0
+        self.avg_2_quant_sum = 0
+        self.avg_2_quant_count = 0
 
 mf_struct ={}
 COLUMN_INDEX = { 
@@ -42,7 +37,7 @@ COLUMN_INDEX = {
     "quant": 6,
     "date": 7 }
     
-GROUPING_ATTRIBUTES = ['cust']
+GROUPING_ATTRIBUTES = ['prod', 'month']
 cur.execute("SELECT * FROM sales;") #execute sends the SQL query to PostgreSQL, and the columns retrieved are stored in the cursor
 
 #Each 'row' is a tuple representing one record; columns are accessed by index within the row
@@ -72,15 +67,9 @@ for row in cur:
 
     for group_key, entry in mf_struct.items():
         # Unpack the 'anchor' values for this group
-        cust, = group_key
+        prod, month = group_key
     
-        if row[COLUMN_INDEX['state']] == 'NY' and row[COLUMN_INDEX['cust']] == cust:
-            mf_struct[group_key].sum_1_quant += row[COLUMN_INDEX["quant"]]
-            mf_struct[group_key].count_1_quant += 1
-            if mf_struct[group_key].max_1_quant == 0 or row[COLUMN_INDEX["quant"]] > mf_struct[group_key].max_1_quant: 
-                mf_struct[group_key].max_1_quant = row[COLUMN_INDEX["quant"]]
-            if mf_struct[group_key].min_1_quant == 0 or row[COLUMN_INDEX["quant"]] < mf_struct[group_key].min_1_quant:
-                mf_struct[group_key].min_1_quant = row[COLUMN_INDEX["quant"]]
+        if ((float(row[COLUMN_INDEX['prod']]) == float(prod)) if str(row[COLUMN_INDEX['prod']]).replace('.','',1).isdigit() and str(prod).replace('.','',1).isdigit() else (row[COLUMN_INDEX['prod']] == prod)) and ((float(row[COLUMN_INDEX['month']]) == float(month)) if str(row[COLUMN_INDEX['month']]).replace('.','',1).isdigit() and str(month).replace('.','',1).isdigit() else (row[COLUMN_INDEX['month']] == month)):
             mf_struct[group_key].avg_1_quant_sum += row[COLUMN_INDEX["quant"]]
             mf_struct[group_key].avg_1_quant_count += 1
 
@@ -92,25 +81,11 @@ for row in cur:
 
     for group_key, entry in mf_struct.items():
         # Unpack the 'anchor' values for this group
-        cust, = group_key
+        prod, month = group_key
     
-        if row[COLUMN_INDEX['state']] == 'NJ' and row[COLUMN_INDEX['cust']] == cust:
-            mf_struct[group_key].sum_2_quant += row[COLUMN_INDEX["quant"]]
-
-
-#Scan for grouping variable 3
-cur.execute("SELECT * FROM sales;")
-
-for row in cur:
-
-    for group_key, entry in mf_struct.items():
-        # Unpack the 'anchor' values for this group
-        cust, = group_key
-    
-        if row[COLUMN_INDEX['state']] == 'CT' and row[COLUMN_INDEX['cust']] == cust:
-            mf_struct[group_key].sum_3_quant += row[COLUMN_INDEX["quant"]]
-            mf_struct[group_key].avg_3_quant_sum += row[COLUMN_INDEX["quant"]]
-            mf_struct[group_key].avg_3_quant_count += 1
+        if ((float(row[COLUMN_INDEX['prod']]) != float(prod)) if str(row[COLUMN_INDEX['prod']]).replace('.','',1).isdigit() and str(prod).replace('.','',1).isdigit() else (row[COLUMN_INDEX['prod']] != prod)) and ((float(row[COLUMN_INDEX['month']]) == float(month)) if str(row[COLUMN_INDEX['month']]).replace('.','',1).isdigit() and str(month).replace('.','',1).isdigit() else (row[COLUMN_INDEX['month']] == month)):
+            mf_struct[group_key].avg_2_quant_sum += row[COLUMN_INDEX["quant"]]
+            mf_struct[group_key].avg_2_quant_count += 1
 
 
 #Finalize AVG values
@@ -118,20 +93,20 @@ for group_key, entry in mf_struct.items():
         
     if entry.avg_1_quant_count != 0:
         entry.avg_1_quant = entry.avg_1_quant_sum / entry.avg_1_quant_count        
-    if entry.avg_3_quant_count != 0:
-        entry.avg_3_quant = entry.avg_3_quant_sum / entry.avg_3_quant_count
+    if entry.avg_2_quant_count != 0:
+        entry.avg_2_quant = entry.avg_2_quant_sum / entry.avg_2_quant_count
 
 #Finalize HAVING values
-HAVING_CONDITIONS = entry.sum_1_quant > 2 * entry.sum_2_quant or entry.avg_1_quant > entry.avg_3_quant
+HAVING_CONDITIONS = entry.avg_1_quant > entry.avg_2_quant
 filtered_groups = []
 for group_key, entry in mf_struct.items():
-    if eval("entry.sum_1_quant > 2 * entry.sum_2_quant or entry.avg_1_quant > entry.avg_3_quant"): #this evaluates the having condition, if it satisfies it will be added to 'filtered_groups'
+    if eval("entry.avg_1_quant > entry.avg_2_quant"): #this evaluates the having condition, if it satisfies it will be added to 'filtered_groups'
         filtered_groups.append((group_key, entry))
         
 
 print("\n\nProject Output Debugging Table:")
 
-SELECT_ATTRIBUTES = ['cust', 'sum_1_quant', 'count_1_quant', 'max_1_quant', 'min_1_quant', 'sum_2_quant', 'sum_3_quant', 'avg_1_quant', 'avg_3_quant']
+SELECT_ATTRIBUTES = ['prod', 'month', 'avg_1_quant', 'avg_2_quant']
 # Print table header
 header = "group_key".ljust(20)
 for attr in SELECT_ATTRIBUTES:

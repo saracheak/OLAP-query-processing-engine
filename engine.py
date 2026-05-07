@@ -223,22 +223,32 @@ for row in cur:
     
 """
             #go through predicate_list and put each in the format of row[COLUMN_INDEX['{column}']] {op} {value} and append to code
-            full_condition = []
+            full_condition = [] #each element looks like this: f"row[COLUMN_INDEX['{column}']] {op} {value}")
             processed_attributes = []
 
             #This for loop goes through each of the predicates provided by the user (e.g. X.state = 'NY' or X.month < month)
             for pred in predicate_list:
                 column, op, value = pred["column"], pred["op"], pred["value"]
 
-                # If the value is one of our grouping attributes, it refers to the current group's value
+                # If the value is one of our grouping attributes, it refers to the current group's value, includes if X.month < month
                 if value in grouping_attributes:
                     value = value
                     processed_attributes.append(value)
+                # If value in the input is a digit, e.g. X.month = 1
+                elif value.isdigit():
+                    value = value
                 else:
                     # Otherwise, it's a literal like 'NY' or 2020
                     value = f"'{value}'"
 
-                full_condition.append(f"row[COLUMN_INDEX['{column}']] {op} {value}")
+                lhs = f"row[COLUMN_INDEX['{column}']]"
+                condition = (
+                    f"(float({lhs}) {op} float({value})) "
+                    f"if str({lhs}).replace('.','',1).isdigit() and str({value}).replace('.','',1).isdigit() "
+                    f"else ({lhs} {op} {value})"
+                )
+                
+                full_condition.append(f"({condition})")
             
             #This for loop goes through each of the predicates NOT provided by the user but is implicitely understood, we have to add an equality check
             #e.g. adds row.cust = cust. This makes sure that the data doesn't go into other rows, so e.g. only Dan's rows are updated

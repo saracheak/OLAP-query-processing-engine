@@ -1,0 +1,20 @@
+--For each product and month, find that product's average sales and the average sales of all other products
+
+WITH T1 AS (
+    SELECT prod, month, AVG(quant) as avg_1
+    FROM sales
+    GROUP BY prod, month
+),
+DistinctGroups AS (
+    SELECT DISTINCT prod, month FROM sales
+),
+OtherProducts AS (
+    SELECT dg.prod, dg.month, AVG(s.quant) as avg_2
+    FROM DistinctGroups dg
+    JOIN sales s ON dg.month = s.month AND dg.prod <> s.prod
+    GROUP BY dg.prod, dg.month
+)
+SELECT T1.prod, T1.month, T1.avg_1, op.avg_2
+FROM T1
+JOIN OtherProducts op ON T1.prod = op.prod AND T1.month = op.month
+WHERE T1.avg_1 > op.avg_2;

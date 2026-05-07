@@ -1,0 +1,26 @@
+--For each product and month, find the average sales for all prior months and all future months
+WITH Groups AS (
+    SELECT prod, month
+    FROM sales
+    GROUP BY prod, month
+),
+Before AS (
+    SELECT g.prod, g.month, AVG(s.quant) as avg_X
+    FROM Groups g
+    JOIN sales s ON g.prod = s.prod AND s.month < g.month
+    GROUP BY g.prod, g.month
+),
+After AS (
+    SELECT g.prod, g.month, AVG(s.quant) as avg_Y
+    FROM Groups g
+    JOIN sales s ON g.prod = s.prod AND s.month > g.month
+    GROUP BY g.prod, g.month
+)
+SELECT 
+    Groups.prod, 
+    Groups.month, 
+    Before.avg_X as avg_X_quant, 
+    After.avg_Y as avg_Y_quant
+FROM Groups
+LEFT JOIN Before ON Groups.prod = Before.prod AND Groups.month = Before.month
+LEFT JOIN After ON Groups.prod = After.prod AND Groups.month = After.month;

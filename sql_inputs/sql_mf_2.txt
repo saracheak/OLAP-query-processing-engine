@@ -1,0 +1,33 @@
+--Find the monthly sales quantity for January, February and March for each product
+WITH Groups AS (
+    SELECT prod 
+    FROM sales 
+    GROUP BY prod
+),
+January AS (
+    SELECT prod, SUM(quant) as sum_jan
+    FROM sales
+    WHERE month = 1
+    GROUP BY prod
+),
+February AS (
+    SELECT prod, SUM(quant) as sum_feb
+    FROM sales
+    WHERE month = 2
+    GROUP BY prod
+),
+March AS (
+    SELECT prod, SUM(quant) as sum_mar
+    FROM sales
+    WHERE month = 3
+    GROUP BY prod
+)
+SELECT 
+    Groups.prod, 
+    January.sum_jan as sum_jan_quant, 
+    February.sum_feb as sum_feb_quant, 
+    March.sum_mar as sum_mar_quant
+FROM Groups
+LEFT JOIN January ON Groups.prod = January.prod
+LEFT JOIN February ON Groups.prod = February.prod
+LEFT JOIN March ON Groups.prod = March.prod;

@@ -1,0 +1,50 @@
+--Find the customers whose sales in NY > 2* their sales in NJ, or average sales in NY > average sales in CT
+WITH Groups AS (
+    SELECT cust 
+    FROM sales 
+    GROUP BY cust
+),
+NY AS (
+    SELECT 
+        cust, 
+        SUM(quant) as sum_1, 
+        COUNT(quant) as count_1, 
+        MAX(quant) as max_1, 
+        MIN(quant) as min_1, 
+        AVG(quant) as avg_1
+    FROM sales
+    WHERE state = 'NY'
+    GROUP BY cust
+),
+NJ AS (
+    SELECT 
+        cust, 
+        SUM(quant) as sum_2
+    FROM sales
+    WHERE state = 'NJ'
+    GROUP BY cust
+),
+CT AS (
+    SELECT 
+        cust, 
+        SUM(quant) as sum_3, 
+        AVG(quant) as avg_3
+    FROM sales
+    WHERE state = 'CT'
+    GROUP BY cust
+)
+SELECT 
+    Groups.cust, 
+    NY.sum_1 as sum_1_quant, 
+    NY.count_1 as count_1_quant, 
+    NY.max_1 as max_1_quant, 
+    NY.min_1 as min_1_quant, 
+    NJ.sum_2 as sum_2_quant, 
+    CT.sum_3 as sum_3_quant, 
+    NY.avg_1 as avg_1_quant, 
+    CT.avg_3 as avg_3_quant
+FROM Groups
+LEFT JOIN NY ON Groups.cust = NY.cust
+LEFT JOIN NJ ON Groups.cust = NJ.cust
+LEFT JOIN CT ON Groups.cust = CT.cust
+WHERE NY.sum_1 > 2 * NJ.sum_2 OR NY.avg_1 > CT.avg_3;
