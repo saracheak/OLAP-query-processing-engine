@@ -1,11 +1,11 @@
 SELECT ATTRIBUTE(S):
-prod, month, avg_X_quant, avg_Y_quant
+cust, prod, month, avg_X_quant, sum_X_quant, min_X_quant, max_X_quant, avg_Y_quant
 NUMBER OF GROUPING VARIABLES(n):
 2
 GROUPING ATTRIBUTES(V):
-prod, month
+cust, prod, month
 F-VECT([F]):
-avg_X_quant, avg_Y_quant
+avg_X_quant, sum_X_quant, min_X_quant, max_X_quant, avg_Y_quant
 SELECT CONDITION-VECT([σ]):
 X.prod=prod and X.month<month
 Y.prod=prod and Y.month>month
