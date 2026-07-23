@@ -15,33 +15,21 @@ import os
 
 class Generator:
     """
-    This class contains functions that either i) interact with the user, or ii) produce output code
+    Compiles phi parameters into MF query-processing Python source.
     """
 
-    def read_input_to_phi(input_file):
+    def parse_phi_lines(lines):
         """
-        This function reads the input file and converts it into a structure with the phi parameters
+        Parse phi parameters from an iterable of text lines.
 
         :returns: dictionary with the 6 phi parameters and the corresponding values
         :rtype: dict {str: [str]}
         """
-        try:
-            with open(input_file, "r") as file:
-                lines = file.readlines()
-        except Exception as e:
-            exit(1) #If the input file is not found, the program can't run
-        
         phi_params = {"S": [], "n": [], "V": [], "F": [], "p": [], "G": []} #sigma = p (predicate)
-        headers = [
-            "SELECT ATTRIBUTE",
-            "NUMBER OF GROUPING VARIABLES",
-            "GROUPING ATTRIBUTES",
-            "F-VECT",
-            "SELECT CONDITION-VECT",
-            "HAVING CONDITION"
-        ]
+        param = None
         for line in lines:
-            if not line: continue #skip any empty lines
+            if not line:
+                continue #skip any empty lines
             line = line.strip()
             if line.startswith("SELECT ATTRIBUTE"):
                 param = "S"
@@ -61,7 +49,7 @@ class Generator:
             elif line.startswith("HAVING_CONDITION"):
                 param = "G"
                 line = line.split(":", 1)[1]
-            
+
             if param and line:
                 if param in ["S", "V", "F"]: #these variables were provided in input as a single comma separated line
                     parts = line.split(",")
@@ -69,11 +57,33 @@ class Generator:
                 else:
                     phi_params[param].append(line)
         return phi_params
-    
-            
-    def user_input_to_phi(param_S, param_n, param_V, param_F, param_p, param_G):
+
+    def parse_phi_text(phi_text):
         """
-        This function takes the user arguments, cleans them, and converts it into a structure with the phi parameters
+        Parse phi parameters from a raw text string.
+
+        :returns: dictionary with the 6 phi parameters and the corresponding values
+        :rtype: dict {str: [str]}
+        """
+        return Generator.parse_phi_lines(phi_text.splitlines())
+
+    def read_input_to_phi(input_file):
+        """
+        Read a phi-parameter file and convert it into a structure with the phi parameters.
+
+        :returns: dictionary with the 6 phi parameters and the corresponding values
+        :rtype: dict {str: [str]}
+        """
+        try:
+            with open(input_file, "r") as file:
+                lines = file.readlines()
+        except Exception as e:
+            raise FileNotFoundError(f"Could not read input file: {input_file}") from e
+        return Generator.parse_phi_lines(lines)
+
+    def params_to_phi(param_S, param_n, param_V, param_F, param_p, param_G):
+        """
+        Build a phi-parameter structure from individual argument values.
 
         :returns: dictionary with the 6 phi parameters and the corresponding values
         :rtype: dict {str: [str]}
@@ -95,8 +105,11 @@ class Generator:
             actual_value = map[param]           #get the argument
             parts = actual_value.split(",")
             phi_params[param].extend([p.strip() for p in parts if p.strip()])   #extends flattens list
-        
+
         return phi_params
+
+    # Backwards-compatible alias
+    user_input_to_phi = params_to_phi
     
     
     def generate_import_and_connection():
@@ -351,7 +364,7 @@ for group_key, entry in mf_struct.items():
     def generate_output_test(phi_params):
         """
         This function is generates an output table to confirm that the selected results are outputted and 
-        were filtered by the 1) grouping variables, 2) phi, and 3) having conidtion (if applicable).
+        were filtered by the 1) grouping variables, 2) phi, and 3) having condition (if applicable).
         """
         selected_attributes = phi_params["S"]
 
@@ -402,7 +415,7 @@ conn.close()
         + Generator.generate_aggregates_scanning_code(phi_params)
         + Generator.generate_final_avg(phi_params)
         + Generator.generate_having_condition(phi_params)
-        + Generator.generate_output_test(phi_params) #this is for debugging the creation of groups and can be deleted later
+        + Generator.generate_output_test(phi_params)
     )
 
 class HelperFunctions:
@@ -410,73 +423,59 @@ class HelperFunctions:
     This class contains all the helper functions for class Generator. These functions don't produce any code
     """
 
-    def write_to_file(file_content):
+    def write_to_file(file_content, output_path=None):
         """
-        This function takes in any string and writes it to another file 
+        Writes generated code to a file. CLI convenience helper — not part of compilation.
+
+        :param file_content: generated Python source
+        :param output_path: optional destination path; if omitted, writes to
+            example_outputs/outputN.py with an auto-incremented N
+        :returns: path written to
+        :rtype: str
         """
-        try:
-            #write output to the output folder with incrementing numbers so the file does not keep overwriting itself
+        if output_path is None:
+            # write to the output folder with incrementing numbers so the file does not keep overwriting itself
             output_num = 1
             while os.path.exists(f"example_outputs/output{output_num}.py"):
                 output_num += 1
+            output_path = f"example_outputs/output{output_num}.py"
 
-            filename = f"example_outputs/output{output_num}.py"
-            with open(filename, "w") as file:
-                file.write(file_content)
-                print(f"Output written to: {filename}")
-        except:
-            print("Could not write to file")
-            exit(1)
+        with open(output_path, "w") as file:
+            file.write(file_content)
+        return output_path
 
     def validate_multi_value_input_string(multi_value_param):
         """
-        This function validates the user typed input variable is entered in the correct comma seperated 
-        format and does not contain any empty values. They are re-prompted if their input is not in the
-        correct format.
-        This function only applies to the parameters than can have multiple values: S, V, F, p
+        Validate a comma-separated multi-value parameter (S, V, F, or p).
 
-        :returns: multi_value_param in the correct comma seperated format
+        :returns: multi_value_param unchanged when valid
         :rtype: string
+        :raises ValueError: if the format is invalid
         """
-        #split the input string based on commas
-        while True:
-            parts = [p.strip() for p in multi_value_param.split(',')] #splits each input and gets rid of extra white space
-            
-            if parts[0]=='':
-                print("Invalid input: at least one input must be provided.")
-                multi_value_param = input("Re-enter param:\n").strip()
-                continue
-            elif len(parts)==1:
-                #validate that one input was given, not multiple inputs without commas
-                if " " in parts[0]:
-                    print("Invalid input: multiple values must be separated by commas.")
-                    multi_value_param = input("Re-enter param:\n").strip()
-                    continue
-                return multi_value_param
-            else: #multiple values inputted, verify none were empty like a, ,b
-                for p in parts:
-                    if (p==''):
-                        print("Invalid input: input values cannot be empty.")
-                        multi_value_param = input("Re-enter param:\n").strip()
-                        continue
-                return multi_value_param
-            
+        parts = [p.strip() for p in multi_value_param.split(',')]
+
+        if not parts or parts[0] == '':
+            raise ValueError("at least one input must be provided")
+        if len(parts) == 1:
+            if " " in parts[0]:
+                raise ValueError("multiple values must be separated by commas")
+            return multi_value_param
+        if any(p == '' for p in parts):
+            raise ValueError("input values cannot be empty")
+        return multi_value_param
+
     def validate_n_is_int(n_param):
         """
-        This function validates the user typed input for n is an integer. 
-        An entry of 1 is valid but "one" would cause the user to be re-prompted. 
+        Validate that n is an integer string.
 
-        :returns: n_param
+        :returns: n_param unchanged when valid
         :rtype: string
+        :raises ValueError: if n is not an integer
         """
-        while True: 
-            try:    
-                n_type = isinstance(int(n_param), int)
-                if(n_type == True):
-                    break
-            except ValueError:
-                print("Invalid input: n parameter must be an integer.")
-                n_param = input("Re-enter n param:\n").strip()
+        try:
+            int(n_param)
+        except ValueError as e:
+            raise ValueError("n parameter must be an integer") from e
         return n_param
     
     def convert_to_mf_struct(phi_params):
@@ -569,35 +568,42 @@ mf_struct ={{}}\n"""
         return agg_func, group_var, column
 
 
-if __name__ == "__main__":
-    while True:
-        option = input("Do you want to input phi parameters by file or user input? Enter 'file' or 'user':\n")
-        option = option.lower()
-        if option == "file":
-            filename = input("Enter file path:\n") 
-            #continue to reprompt user until existing filename is given
-            while True:
-                if not os.path.exists(filename):
-                    print("Input filename does not exist.")
-                    filename = input("Enter file path:\n")
-                break
-            phi_params = Generator.read_input_to_phi(filename)
-            mf_struct_string = Generator.generate_full_program(phi_params)
-            HelperFunctions.write_to_file(mf_struct_string)
-            break
-        elif option == "user":
-            print("Ensure multi-valued parameters (S, V, F, p) are separated by ','\n")
+def generate(input_file=None, *, phi_text=None, phi_params=None):
+    """
+    Compile phi parameters into MF query-processing Python source.
 
-            param_S = HelperFunctions.validate_multi_value_input_string(input("Enter S param:\n").strip())
-            param_n = HelperFunctions.validate_n_is_int(input("Enter n param:\n").strip())
-            param_V = HelperFunctions.validate_multi_value_input_string(input("Enter V param:\n").strip())
-            param_F = HelperFunctions.validate_multi_value_input_string(input("Enter F param:\n").strip())
-            param_p = HelperFunctions.validate_multi_value_input_string(input("Enter p param:\n").strip())
-            param_G = input("Enter G param:\n").strip()   #unsure what to do for input validation so we did not add any for G param
-            phi_params = Generator.user_input_to_phi(param_S, param_n, param_V, param_F, param_p, param_G)
-            print(phi_params)
-            mf_struct_string = Generator.generate_full_program(phi_params)
-            HelperFunctions.write_to_file(mf_struct_string)
-            break
-        else:
-            print("Invalid input. Please enter 'file' or 'user")
+    Provide exactly one of:
+      - input_file: path to a phi-parameter file
+      - phi_text: raw phi-parameter text
+      - phi_params: already-parsed phi dict
+
+    :returns: generated Python source code (does not write files)
+    :rtype: str
+    """
+    provided = sum(x is not None for x in (input_file, phi_text, phi_params))
+    if provided != 1:
+        raise ValueError("Provide exactly one of input_file, phi_text, or phi_params")
+
+    if input_file is not None:
+        if not os.path.exists(input_file):
+            raise FileNotFoundError(f"Input file does not exist: {input_file}")
+        params = Generator.read_input_to_phi(input_file)
+    elif phi_text is not None:
+        params = Generator.parse_phi_text(phi_text)
+    else:
+        params = phi_params
+
+    return Generator.generate_full_program(params)
+
+
+if __name__ == "__main__":
+    import sys
+
+    if len(sys.argv) < 2:
+        print("Usage: python3 engine.py <input_file> [output_path]")
+        sys.exit(1)
+
+    program = generate(sys.argv[1])
+    output_path = sys.argv[2] if len(sys.argv) > 2 else None
+    written = HelperFunctions.write_to_file(program, output_path)
+    print(f"Output written to: {written}")

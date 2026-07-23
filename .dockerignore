@@ -1,0 +1,11 @@
+.venv
+venv
+.git
+.gitignore
+__pycache__
+*.pyc
+.DS_Store
+example_outputs
+sql_inputs
+*.md
+.cursor
